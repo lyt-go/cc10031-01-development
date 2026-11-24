@@ -94,6 +94,8 @@ desktop.ini
 *.db
 *.pid
 *.seed
+/data/
+**/data/ingest_monitor/
 
 # BEGIN S11 LOCAL SNAPSHOT EXCLUSIONS
 **/.git/**

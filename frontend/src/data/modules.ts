@@ -200,6 +200,17 @@ export const MODULES: ModuleMeta[] = [
     actionTargets: {"提交确认": "待确认", "发布快照": "已发布", "标记归档": "已归档"},
     metrics: ["版本快照总数", "待确认快照", "已发布快照"],
   },
+  {
+    key: "ingest_monitor",
+    name: "接入监控",
+    entity: "监控班次",
+    desc: "按班次核对落盘范围，把实收与未齐区段关联为待补捕获范围，派发补采并核算采样覆盖。",
+    fields: ["监控编号", "测点编号", "班次", "规则版本", "应收点数", "实收点数", "缺口时刻", "安全接收窗口", "核对时间"],
+    statuses: ["草稿", "核对中", "已核对", "已关闭"],
+    actions: ["提交核对", "确认核对", "关闭看板"],
+    actionTargets: {"提交核对": "核对中", "确认核对": "已核对", "关闭看板": "已关闭"},
+    metrics: ["监控班次总数", "核对中班次", "已核对班次"],
+  },
 ]
 
 export const MODULE_BY_KEY: Map<string, ModuleMeta> = new Map(

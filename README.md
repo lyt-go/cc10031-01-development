@@ -68,6 +68,7 @@ npm run dev
 | 序列导出 | `series_export` | 导出任务 | 导出编号、测点范围、时间范围 |
 | 时序质量 | `series_quality` | 质量报告 | 报告编号、测点编号、统计窗口 |
 | 序列快照 | `series_snapshot` | 版本快照 | 快照编号、口径说明、测点范围 |
+| 接入监控 | `ingest_monitor` | 监控班次/补采申请 | 监控编号、班次、规则版本、应收/实收点数、缺口快照 |
 
 ## 约定
 
@@ -76,6 +77,38 @@ npm run dev
   `frontend/src/domain/<模块>.ts`，用于承载真实业务差异并维持36题位容量。
 - 列表接口统一返回 `{ items, total, page, size }`，动作接口统一返回 `{ ok, message }`。
 - 状态流转只允许在 `app/services` 里改，路由层不做业务判断。
+
+## 接入监控（按班次核对落盘范围）
+
+接入监控把两班的实收与未齐区段关联成明确的待补捕获范围，处理换班频率切换与迟到旧包。
+领域逻辑集中在 `backend/app/services/ingest_monitor.py`，专用视图为
+`frontend/src/views/IngestMonitorView.vue`（路由 `/ingest_monitor`）。
+
+### 口径
+
+- **班次网格**：按规则版本生成应收点（旧班 v1.0 = 1Hz，新班 v2.0 = 2Hz）。
+- **实收去重**：迟到包走独立实收核对，按（测点, 时刻）去重，已确认点不会再计一次。
+- **连续区间**：已接收的连续区间原样保留，后到的完整区间不掩盖旧班未确认缺口。
+- **前后两段缺口**：安全接收窗口（120s）内仍缺的归「边缘等待时刻」，窗口外才是「确认缺口」。
+- **派发快照**：打开补采申请时冻结当时缺口；发出时再扣减其间已核实收，实际派发范围只含仍缺点，
+  打开时快照与扣减点同时写入 `data/ingest_monitor/dispatch_ledger.jsonl`。
+- **领取资格**：同班次在途申请唯一，领取做范围重叠校验，禁止重复领取。
+
+### 专用接口
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/api/ingest_monitor/board` | 班次看板：应收/实收、连续区间、等待与确认缺口、领取资格 |
+| GET | `/api/ingest_monitor/coverage` | 采样覆盖对照：按规则版本核算应收/实收/边缘等待区间 |
+| GET | `/api/ingest_monitor/requests` | 补采申请列表（含缺口快照与派发范围） |
+| GET | `/api/ingest_monitor/ledger` | 派发台账（留存打开时缺口与实际派发范围） |
+| POST | `/api/ingest_monitor/requests/open` | 打开补采申请，冻结缺口快照（body: `{"shift":"A"}`） |
+| POST | `/api/ingest_monitor/requests/{id}/issue` | 发出捕获范围，扣减发出前已核实收 |
+| POST | `/api/ingest_monitor/requests/{id}/claim` | 领取派发，重叠/重复领取被拒 |
+| POST | `/api/ingest_monitor/receipts` | 独立实收核对（body: `{"timestamp":"..."}`） |
+| POST | `/api/ingest_monitor/reset` | 重置演示场景 |
+
+通用资源接口 `/api/ingest_monitor` 仍可查询监控班次种子行。
 
 领域：数据工程
 子方向：数据采集、爬虫与RPA
